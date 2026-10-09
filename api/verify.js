@@ -96,42 +96,13 @@ export default async function handler(req, res) {
   }
 
   if (mode === 'live') {
-    if (!process.env.LIVE_VERIFICATION_URL || !process.env.LIVE_VERIFICATION_API_KEY) {
-      return res.status(503).json({
-        error: 'Live verification is not connected yet. Add credentials for an authorised insurer or TPA API in Vercel Project Settings → Environment Variables. Demo mode only uses fictional sample records.'
-      });
-    }
-
-    try {
-      const response = await fetch(process.env.LIVE_VERIFICATION_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.LIVE_VERIFICATION_API_KEY}`
-        },
-        body: JSON.stringify({ policyNumber, insurer, consent: true }),
-        signal: AbortSignal.timeout(12_000)
-      });
-
-      if (!response.ok) {
-        return res.status(502).json({
-          error: 'The configured insurer/TPA provider could not verify this request. Contact the insurer or TPA for confirmation.'
-        });
-      }
-
-      const providerBody = await response.json();
-      const normalized = normaliseProviderResponse(providerBody, policyNumber);
-      if (!normalized) {
-        return res.status(502).json({
-          error: 'The provider responded, but its payload did not contain a recognised verification result. No policy status has been inferred. Confirm the provider API schema before enabling live checks.'
-        });
-      }
-      return res.status(200).json(normalized);
-    } catch {
-      return res.status(502).json({
-        error: 'The verification provider could not be reached or returned an unreadable response. Please try again later or contact the insurer.'
-      });
-    }
+    // Intentionally fail closed while provider access and the production API contract are pending.
+    // Do not send policyholder data to an assumed endpoint or infer a status from an undocumented schema.
+    return res.status(503).json({
+      error: 'Live verification is not enabled yet. HealthVerify is awaiting the provider’s approved production API documentation and credentials. No policy data was sent to an external provider. Please use Demo mode for sample records or contact the insurer directly for live confirmation.',
+      code: 'LIVE_PROVIDER_ONBOARDING_PENDING',
+      mode: 'live'
+    });
   }
 
   const sample = demoRecords[policyNumber.toUpperCase()];
