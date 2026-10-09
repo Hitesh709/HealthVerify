@@ -22,22 +22,55 @@ const demoRecords = {
 };
 
 function normaliseProviderResponse(body, requestedNumber) {
-  const policy = body?.policy || body?.data?.policy || body?.data || body;
+  const root = body?.result || body?.response || body;
+  const policy = root?.policy || root?.data?.policy || root?.data || root;
+  const rawStatus = policy?.policy_status || policy?.policyStatus || policy?.status || root?.policy_status || root?.policyStatus || root?.status;
+  const statusText = typeof rawStatus === 'string' ? rawStatus.trim() : '';
+  const verifiedFlag = typeof root?.verified === 'boolean'
+    ? root.verified
+    : typeof root?.is_valid === 'boolean'
+      ? root.is_valid
+      : typeof policy?.verified === 'boolean'
+        ? policy.verified
+        : typeof policy?.is_valid === 'boolean'
+          ? policy.is_valid
+          : null;
+
+  const recognizedStatuses = new Set([
+    'active', 'in force', 'expired', 'lapsed', 'cancelled', 'canceled',
+    'inactive', 'terminated', 'suspended', 'pending', 'not found',
+    'invalid', 'not verified', 'verified', 'unable to verify'
+  ]);
+  const hasRecognizedStatus = statusText && recognizedStatuses.has(statusText.toLowerCase());
+  if (verifiedFlag === null && !hasRecognizedStatus) {
+    return null;
+  }
+
+  const returnedPolicyNumber = policy?.policyNumber || policy?.policy_number || policy?.policyNo || null;
+  const verified = verifiedFlag === true || (hasRecognizedStatus && ['active', 'in force', 'verified'].includes(statusText.toLowerCase()));
+  const normalizedStatus = statusText || (verifiedFlag === true
+    ? 'Verified — policy status not provided'
+    : 'Not verified by provider');
+
   return {
     mode: 'live',
-    source: body?.source || body?.provider || 'Configured verification provider',
+    verificationOutcome: verifiedFlag === false || ['not found', 'invalid', 'not verified'].includes(normalizedStatus.toLowerCase())
+      ? 'not_verified'
+      : (hasRecognizedStatus || verifiedFlag !== null ? 'provider_response' : 'inconclusive'),
+    source: root?.source || root?.provider || process.env.LIVE_VERIFICATION_PROVIDER_NAME || 'Configured verification provider',
     checkedAt: new Date().toISOString(),
-    message: body?.message || undefined,
+    message: root?.message || undefined,
     policy: {
-      policyNumber: String(policy?.policyNumber || policy?.policy_number || requestedNumber),
-      insurer: policy?.insurer || policy?.insurerName || policy?.payerName || null,
-      status: policy?.status || policy?.policyStatus || 'Unable to verify',
-      coverage: policy?.coverage || policy?.sumInsured || policy?.sum_insured || null,
-      plan: policy?.plan || policy?.planName || null,
-      startDate: policy?.startDate || policy?.policyStartDate || null,
-      endDate: policy?.endDate || policy?.policyEndDate || null,
-      cashless: policy?.cashless || policy?.cashlessEligibility || 'Not provided by the connected source.',
-      claim: policy?.claim || policy?.claimStatus || 'Not provided by the connected source.'
+      // Never substitute the user's input as if the provider matched it.
+      policyNumber: returnedPolicyNumber ? String(returnedPolicyNumber) : null,
+      insurer: policy?.insurer || policy?.insurerName || policy?.insurance_company || policy?.payerName || null,
+      status: normalizedStatus,
+      coverage: policy?.coverage || policy?.sumInsured || policy?.sum_insured || policy?.sum_insured_amount || null,
+      plan: policy?.plan || policy?.planName || policy?.product_name || null,
+      startDate: policy?.startDate || policy?.policyStartDate || policy?.policy_start_date || null,
+      endDate: policy?.endDate || policy?.policyEndDate || policy?.policy_end_date || null,
+      cashless: policy?.cashless || policy?.cashlessEligibility || policy?.cashless_eligibility || 'Not provided by the connected source.',
+      claim: policy?.claim || policy?.claimStatus || policy?.claim_status || 'Not provided by the connected source.'
     }
   };
 }
@@ -87,7 +120,13 @@ export default async function handler(req, res) {
       }
 
       const providerBody = await response.json();
-      return res.status(200).json(normaliseProviderResponse(providerBody, policyNumber));
+      const normalized = normaliseProviderResponse(providerBody, policyNumber);
+      if (!normalized) {
+        return res.status(502).json({
+          error: 'The provider responded, but its payload did not contain a recognised verification result. No policy status has been inferred. Confirm the provider API schema before enabling live checks.'
+        });
+      }
+      return res.status(200).json(normalized);
     } catch {
       return res.status(502).json({
         error: 'The verification provider could not be reached or returned an unreadable response. Please try again later or contact the insurer.'
