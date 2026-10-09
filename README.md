@@ -63,6 +63,10 @@ Cashless eligibility depends on insurer/TPA rules, network-hospital status, poli
 
 HealthVerify is not an insurer, TPA, broker or government service. Demo results are fictional. A response from a configured provider is not a guarantee of claim approval or cashless admission. Confirm coverage, exclusions, waiting periods, network status and claim decisions with the insurer. Do not submit Aadhaar numbers, OTPs or medical records to the demo app.
 
-## Deployment
+## Deployment on Vercel
 
-Deploy the Node server and built frontend to a host that supports a persistent Node.js process and environment secrets. Configure the provider URL and secret in the host's secret manager. Static-only hosting is not enough for the live verification API.
+The repository includes Vercel serverless endpoints in `api/health.js` and `api/verify.js`. Import `Hitesh709/HealthVerify` into Vercel with the repository root as the Root Directory and the Vite framework preset (Build Command: `npm run build`, Output Directory: `dist`). Vercel should deploy the `api/` functions alongside the static frontend. After the deployment finishes, check `https://YOUR-DOMAIN/api/health` and confirm it returns JSON with `status: "ok"`. Then use the in-app **Active sample** button; it should return the clearly labelled fictional sample result.
+
+For real policy verification, add `LIVE_VERIFICATION_URL` and `LIVE_VERIFICATION_API_KEY` under Vercel Project Settings → Environment Variables, for the Production environment, then redeploy. These must be credentials from an authorised insurer/TPA service. The current provider adapter is a generic starting point; its request authentication and response-field mapping must match the actual provider's API contract. Do not use arbitrary URLs or guessed credentials, and never place the API key in frontend variables.
+
+For local development, `server.js` still provides the Express API. On Vercel, requests to `/api/health` and `/api/verify` are handled by the serverless functions in `api/`.
