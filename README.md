@@ -38,6 +38,10 @@ Use the sample buttons in the app:
 
 Any other number returns an explicitly labelled “Unable to verify (demo)” result. This is not a real policy lookup and does not indicate whether a real policy is valid.
 
+## Live provider onboarding status
+
+**Current status: blocked pending production API access.** See [`docs/provider-onboarding-meon.md`](docs/provider-onboarding-meon.md) for the provider contact details, questions, email draft, and integration acceptance checklist. Live mode currently fails closed with `503 LIVE_PROVIDER_ONBOARDING_PENDING`; no policy data is sent to an assumed endpoint. Obtain Meon's approved production documentation and sandbox credentials before implementing the adapter.
+
 ## Configure live verification
 
 Live mode is intentionally disabled until you have a legitimate, authorised insurer or TPA integration. There is no single public universal API that can validate every Indian health policy from only a policy number.
