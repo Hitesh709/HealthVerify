@@ -45,12 +45,21 @@ Live mode is intentionally disabled until you have a legitimate, authorised insu
 Set the following environment variables on the **server only**:
 
 ```env
-LIVE_VERIFICATION_URL=https://your-authorised-provider.example/verification
+LIVE_VERIFICATION_PROVIDER_NAME=Meon
+LIVE_VERIFICATION_URL=https://provider-production-endpoint-from-approved-docs
 LIVE_VERIFICATION_API_KEY=replace-with-secret
 PORT=3000
 ```
 
-The server sends a POST request with `policyNumber`, `insurer`, and `consent` to the configured endpoint using a Bearer token. Adapt `normaliseProviderResponse()` in `server.js` to the exact schema and authentication method provided by your insurer/TPA/NHCX implementation. Never commit real API keys or expose them through `VITE_*` variables. Do not enable live mode until access, consent, data-processing obligations and provider response semantics have been validated.
+The Vercel serverless endpoint sends a POST request with `policyNumber`, `insurer`, and `consent` to the configured endpoint using a Bearer token. The request shape, authentication and response mapping must be updated to match the provider's signed production documentation before live use. The normalizer now fails closed if the response does not contain a recognized verification signal; it never invents an active status or substitutes the user's input as a matched policy number.
+
+### Provider research (India)
+
+Meon advertises an Indian Insurance Verification API and a separate consent-based Insurance Policy Fetch workflow. Public marketing material is not enough to confirm the exact production contract, insurer coverage, or whether a policy number alone is sufficient. Contact `sales@meon.co.in` or `+91-9205969093` and request production API documentation, supported Indian health insurers, source-of-truth details, consent requirements, sandbox credentials, commercial terms, and a written confirmation that the service verifies active policy status rather than only formatting or extracting documents. See [Meon Insurance Verification API](https://meon.co.in/insurance-verification-api) and [Meon Insurance Fetch documentation](https://developer.meon.co.in/new/products/Insurance%20Fetch).
+
+Do not use PolicyNumbers as the Indian production provider without confirmation: its published verification coverage currently lists the UK, Germany and France, not India. See [its API coverage](https://api.policynumbers.com/).
+
+Never commit real API keys or expose them through `VITE_*` variables. Do not enable live mode until access, consent, data-processing obligations and provider response semantics have been validated.
 
 Cashless eligibility depends on insurer/TPA rules, network-hospital status, policy terms and pre-authorisation. Claim data is shown only if the configured source returns it.
 
